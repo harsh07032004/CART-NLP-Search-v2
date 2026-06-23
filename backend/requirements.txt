@@ -1,0 +1,12 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+numpy>=2.0.0
+spacy>=3.8.0
+pymongo>=4.7.0
+elasticsearch==7.13.4
+urllib3>=1.26.0,<2.0.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.1
+requests>=2.31.0
+rapidfuzz>=3.8.0
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

@@ -1,0 +1,46 @@
+# Render.com deployment configuration
+# Deploy this project to Render with a single click
+
+services:
+  # Backend API (FastAPI)
+  - type: web
+    name: cart-api
+    runtime: python
+    region: oregon
+    plan: free
+    rootDirectory: backend
+    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false  # Set manually in Render dashboard (use MongoDB Atlas)
+      - key: MONGO_DB
+        value: ecommerce
+      - key: ES_HOST
+        sync: false  # Set manually (use Bonsai.io or Elastic Cloud)
+      - key: ES_INDEX
+        value: products
+      - key: PYTHON_VERSION
+        value: "3.11"
+    healthCheckPath: /health
+    
+  # Frontend (Static Site)
+  - type: static
+    name: cart-frontend
+    rootDirectory: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=86400
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: cart-api
+          type: web
+          property: url
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

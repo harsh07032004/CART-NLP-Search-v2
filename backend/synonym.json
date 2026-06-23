@@ -1,0 +1,420 @@
+{
+  "categories": {
+    "shoes": [
+      "footwear",
+      "sneakers",
+      "trainers",
+      "kicks",
+      "boots",
+      "formal shoes",
+      "heels",
+      "flip flops",
+      "slippers",
+      "sports shoes",
+      "running shoes",
+      "walking shoes",
+      "casual shoes",
+      "oxfords",
+      "derbies",
+      "brogues",
+      "high tops",
+      "sandals",
+      "clogs"
+    ],
+    "phone": [
+      "mobile",
+      "smartphone",
+      "cellphone",
+      "phones",
+      "mobiles",
+      "android",
+      "iphone",
+      "telephone"
+    ],
+    "earphone": [
+      "headphone",
+      "earphones",
+      "headphones",
+      "earbuds",
+      "pods",
+      "headset"
+    ],
+    "shirts": [
+      "tops",
+      "t-shirts",
+      "tees",
+      "polo shirts",
+      "crew neck",
+      "v-neck",
+      "henley",
+      "blouses",
+      "button-down",
+      "formal shirts",
+      "casual shirts",
+      "kurta shirts",
+      "jerseys",
+      "tank tops",
+      "crop tops"
+    ],
+    "pants": [
+      "trousers",
+      "jeans",
+      "denims",
+      "chinos",
+      "cargo pants",
+      "joggers",
+      "leggings",
+      "track pants",
+      "slacks",
+      "sweatpants",
+      "palazzos",
+      "culottes",
+      "capris"
+    ],
+    "jackets": [
+      "coats",
+      "hoodies",
+      "sweaters",
+      "cardigans",
+      "blazers",
+      "windcheaters",
+      "overcoats",
+      "parkas",
+      "raincoats",
+      "bomber jackets",
+      "leather jackets",
+      "puffer jackets"
+    ],
+    "watches": [
+      "timepieces",
+      "wristwatches",
+      "smartwatches",
+      "analog watches",
+      "digital watches",
+      "fitness trackers",
+      "luxury watches",
+      "chronographs",
+      "automatic watches"
+    ],
+    "bags": [
+      "backpacks",
+      "handbags",
+      "totes",
+      "purses",
+      "messenger bags",
+      "duffle bags",
+      "laptop bags",
+      "sling bags",
+      "satchels",
+      "briefcases",
+      "wallets"
+    ],
+    "accessories": [
+      "belts",
+      "hats",
+      "caps",
+      "scarves",
+      "gloves",
+      "sunglasses",
+      "eyewear",
+      "jewelry",
+      "bracelets",
+      "necklaces",
+      "earrings",
+      "rings",
+      "anklets",
+      "wristbands",
+      "ties"
+    ],
+    "electronics": [
+      "gadgets",
+      "laptops",
+      "tablets",
+      "chargers",
+      "wearables",
+      "monitors",
+      "cameras",
+      "power banks",
+      "smart speakers",
+      "TVs",
+      "LED TVs",
+      "soundbars",
+      "printers"
+    ],
+    "beauty": [
+      "cosmetics",
+      "makeup",
+      "skincare",
+      "lipsticks",
+      "moisturizers",
+      "creams",
+      "sunscreens",
+      "facewash",
+      "serums",
+      "foundations",
+      "eyeliners",
+      "mascaras",
+      "perfumes",
+      "deodorants",
+      "body lotions"
+    ],
+    "testing": [
+      "test_b",
+      "tb_alias"
+    ]
+  },
+  "brands": {
+    "nike": [
+      "nikey",
+      "nike inc",
+      "nk",
+      "nike brand",
+      "nike sportswear",
+      "nikie"
+    ],
+    "adidas": [
+      "addidas",
+      "adi",
+      "adidas ag",
+      "adidas group",
+      "adi-das"
+    ],
+    "puma": [
+      "poma",
+      "pumma",
+      "puma se",
+      "puma sports",
+      "pumaa"
+    ],
+    "apple": [
+      "apple inc",
+      "apple corporation",
+      "apple store",
+      "mac",
+      "iphone",
+      "macbook"
+    ],
+    "samsung": [
+      "sam sung",
+      "samsung electronics",
+      "samsung india",
+      "samzung",
+      "galaxy",
+      "samsang"
+    ],
+    "sony": [
+      "soni",
+      "sony corp",
+      "sony electronics",
+      "sony playstation",
+      "sony audio"
+    ],
+    "levis": [
+      "levi's",
+      "levis strauss",
+      "leviss",
+      "levy jeans",
+      "levi"
+    ],
+    "zara": [
+      "zarra",
+      "zra",
+      "zara fashion",
+      "zara clothing",
+      "zaraa"
+    ],
+    "h&m": [
+      "hm",
+      "h and m",
+      "hennes & mauritz",
+      "hennes",
+      "handm"
+    ],
+    "gucci": [
+      "guci",
+      "guccy",
+      "gucci brand",
+      "gucci italy",
+      "gucci fashion"
+    ],
+    "dell": [
+      "dell inc",
+      "dell computers",
+      "dell laptops",
+      "dell tech",
+      "dell inspiron"
+    ],
+    "asus": [
+      "asustek",
+      "asus laptops",
+      "rog",
+      "asus rog",
+      "zenbook"
+    ],
+    "hp": [
+      "hewlett packard",
+      "hp laptops",
+      "hp india",
+      "hp pavilion",
+      "hp envy"
+    ],
+    "realme": [
+      "realm",
+      "real mi",
+      "realme india",
+      "realme phones"
+    ],
+    "oneplus": [
+      "one plus",
+      "1+",
+      "oneplus india",
+      "one plus phone"
+    ],
+    "testbrand": [
+      "test_b",
+      "tb_alias"
+    ]
+  },
+  "colors": {
+    "blue": [
+      "navy",
+      "sky blue",
+      "baby blue",
+      "royal blue",
+      "cobalt",
+      "denim",
+      "indigo",
+      "azure",
+      "ocean"
+    ],
+    "red": [
+      "crimson",
+      "maroon",
+      "wine",
+      "scarlet",
+      "ruby",
+      "brick red",
+      "blood red"
+    ],
+    "black": [
+      "jet black",
+      "ebony",
+      "onyx",
+      "dark",
+      "charcoal",
+      "matte black"
+    ],
+    "white": [
+      "ivory",
+      "cream",
+      "off-white",
+      "eggshell",
+      "pearl",
+      "snow white"
+    ],
+    "green": [
+      "mint",
+      "olive",
+      "forest green",
+      "neon green",
+      "sage",
+      "lime",
+      "sea green",
+      "emerald"
+    ],
+    "yellow": [
+      "mustard",
+      "lemon",
+      "gold",
+      "sunflower",
+      "amber",
+      "flaxen"
+    ],
+    "pink": [
+      "fuchsia",
+      "rose",
+      "blush",
+      "magenta",
+      "hot pink",
+      "pastel pink",
+      "peach"
+    ],
+    "purple": [
+      "lavender",
+      "violet",
+      "mauve",
+      "plum",
+      "eggplant",
+      "orchid"
+    ],
+    "brown": [
+      "tan",
+      "beige",
+      "coffee",
+      "chocolate",
+      "mocha",
+      "walnut",
+      "camel"
+    ],
+    "grey": [
+      "gray",
+      "slate",
+      "ash",
+      "charcoal grey",
+      "graphite",
+      "silver"
+    ],
+    "orange": [
+      "burnt orange",
+      "tangerine",
+      "amber",
+      "rust",
+      "coral"
+    ],
+    "gold": [
+      "golden",
+      "metallic gold",
+      "shiny gold"
+    ],
+    "silver": [
+      "metallic silver",
+      "greyish silver",
+      "chrome"
+    ]
+  },
+  "genders": {
+    "men": [
+      "man",
+      "male",
+      "gentleman",
+      "mens",
+      "menswear",
+      "guys",
+      "him",
+      "for him",
+      "boys' section"
+    ],
+    "women": [
+      "woman",
+      "female",
+      "lady",
+      "ladies",
+      "womenswear",
+      "girls",
+      "her",
+      "for her",
+      "girls' section"
+    ],
+    "kids": [
+      "child",
+      "children",
+      "boys",
+      "girls",
+      "toddlers",
+      "infants",
+      "baby",
+      "youth",
+      "teenagers"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+# Environment Variables (CRITICAL)
+.env
+.env.*
+backend/.env
+frontend/.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Node/Frontend
+node_modules/
+dist/
+build/
+.output/
+.nuxt/
+.next/
+coverage/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and Debug
+*.log
+*.txt
+!requirements.txt
+!runtime.txt
+debug_*.py
+test_*.py
+check_*.py
+verify_*.py
+
+# OS
+.DS_Store
+Thumbs.db
