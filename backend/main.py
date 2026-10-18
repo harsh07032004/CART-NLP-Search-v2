@@ -10,7 +10,7 @@ if not hasattr(np, "float_"):
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import product_routes
+from app.routes import product_routes, insight_routes
 from app.db import init_es_index
 from contextlib import asynccontextmanager
 
@@ -43,10 +43,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from app.config import settings
+
+_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()] or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    # Browsers reject credentials with a wildcard origin, so only enable them
+    # when explicit origins are configured.
+    allow_credentials=_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -106,10 +111,18 @@ def _keep_alive_worker(interval_seconds: int = 600):
     Keeps the Render process warm so the next real request doesn't cold-boot.
     A slightly randomised delay prevents clock-aligned thundering herd."""
     # Wait for the server to fully start before the first ping
+    from app.config import settings
+
+    # Render only counts *inbound* traffic, so ping the public URL; pinging
+    # localhost never prevented spin-down. Skip entirely when not on Render.
+    if not settings.RENDER_EXTERNAL_URL:
+        print("[KeepAlive] RENDER_EXTERNAL_URL not set - keep-alive disabled")
+        return
+    url = settings.RENDER_EXTERNAL_URL.rstrip("/") + "/health"
     time.sleep(30)
     while True:
         try:
-            resp = _requests.get("http://localhost:8000/health", timeout=10)
+            resp = _requests.get(url, timeout=10)
             print(f"[KeepAlive] Heartbeat -> status {resp.status_code}")
         except Exception as e:
             print(f"[KeepAlive] Heartbeat failed (will retry next cycle): {e}")
@@ -127,6 +140,7 @@ def _keep_alive_worker(interval_seconds: int = 600):
 # ---------------------------------------------------------------------------
 
 app.include_router(product_routes.router)
+app.include_router(insight_routes.router)
 
 
 @app.get("/")

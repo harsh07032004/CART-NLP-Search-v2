@@ -85,6 +85,30 @@ def _map_hit(hit: dict) -> dict:
     return data
 
 
+def _invalidate_caches() -> None:
+    """Drop the product list AND every cached search, so writes are visible
+    immediately instead of after the 2-minute search TTL."""
+    cache.delete("all_products")
+    cache.delete_prefix("search:")
+
+
+def _parse_or_plain(query: str, nlp_ready: bool) -> dict:
+    """Parse with NLP, or fall back to a plain keyword query during cold start."""
+    if nlp_ready:
+        parsed = parse_query(query)
+        print(f"NLP Parsed: {json.dumps(parsed, default=str)}")
+        return parsed
+    return {
+        "keywords": [query.strip()],
+        "category": None, "brand": None,
+        "color": None, "gender": None,
+        "price_min": None, "price_max": None,
+        "sort_by": None, "is_sale": False,
+        "in_stock": False, "min_discount": None,
+        "did_you_mean": None,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Service class
 # ---------------------------------------------------------------------------
@@ -134,7 +158,7 @@ class ProductService:
         _es_index_with_retry(str_id, es_doc)
 
         # Invalidate product-list cache
-        cache.delete("all_products")
+        _invalidate_caches()
 
         return models.ProductResponse(id=str_id, **product_dict)
 
@@ -155,13 +179,12 @@ class ProductService:
         KEY RULE: category filter is NEVER dropped (prevents cross-category false positives).
         If a user asks for "jackets", we ONLY show jackets at every level.
 
-        Relaxation order:
-          Level 1: category + brand + price + discount (drop nothing — should_clauses still boost)
-          Level 2: category + price + discount         (drop brand)
-          Level 3: category + discount                 (drop price)
-          Level 4: category only                       (drop discount — show all category items)
-          Level 5: category + match_all (keyword typo) (drop keyword must, keep category)
-          Level 6: match_all everywhere                (absolute last resort — only when NO category)
+        Relaxation order (the original query already returned 0 hits):
+          Level 1: category + price + discount + stock (drop brand)
+          Level 2: category + discount + stock         (drop price)
+          Level 3: category only                       (drop discount/stock — show all category items)
+          Level 4: category + match_all (keyword typo) (drop keyword must, keep category)
+          Level 5: match_all everywhere                (absolute last resort — only when NO category)
         """
 
         def _run_query(filters, override_must=None, include_should=True):
@@ -204,35 +227,30 @@ class ProductService:
         match_all_must = [{"match_all": {}}]
         has_category = bool(category_f)
 
-        # Level 1: drop nothing (just retry in case it was a transient issue)
-        hits = _run_query(filter_clauses)
-        if hits:
-            return hits
-
-        # Level 2: drop brand (keep category + price + discount + stock)
+        # Level 1: drop brand (keep category + price + discount + stock)
         hits = _run_query(category_f + price_f + discount_f + stock_f)
         if hits:
             return hits
 
-        # Level 3: drop price too (keep category + discount + stock)
+        # Level 2: drop price too (keep category + discount + stock)
         hits = _run_query(category_f + discount_f + stock_f)
         if hits:
             return hits
 
-        # Level 4: drop discount/stock filters (show full category range)
+        # Level 3: drop discount/stock filters (show full category range)
         # This is the crucial one: "50% off jackets" with no 50%+ jackets → show all jackets
         if category_f:
             hits = _run_query(category_f)
             if hits:
                 return hits
 
-        # Level 5: keyword may be a bad typo — use match_all + category
+        # Level 4: keyword may be a bad typo — use match_all + category
         if category_f:
             hits = _run_query(category_f, override_must=match_all_must, include_should=False)
             if hits:
                 return hits
 
-        # Level 6: absolute last resort — no category specified, show anything relevant
+        # Level 5: absolute last resort — no category specified, show anything relevant
         if not has_category:
             hits = _run_query([], override_must=match_all_must, include_should=False)
             if hits:
@@ -244,12 +262,14 @@ class ProductService:
     # SEARCH  (now sort-intent aware)
     # ------------------------------------------------------------------
     @staticmethod
-    def search_products(query: str, size: int = 100, nlp_ready: bool = True) -> List[dict]:
+    def search_products(
+        query: str, size: int = 100, nlp_ready: bool = True, parsed: Optional[dict] = None
+    ) -> List[dict]:
         if not query or not query.strip():
             return []
 
         # Cache key per (query, size)
-        ck = cache_key(query.lower().strip(), size)
+        ck = cache_key(query.lower().strip(), size, nlp_ready)
         cached_result = cache.get(f"search:{ck}")
         if cached_result is not None:
             print(f"Cache HIT: search '{query}'")
@@ -259,19 +279,8 @@ class ProductService:
         filter_clauses = []   # hard: category, brand, price, discount, stock
         should_clauses = []   # soft: color, gender (boost ranking, don't eliminate results)
 
-        if nlp_ready:
-            parsed = parse_query(query)
-            print(f"NLP Parsed: {json.dumps(parsed, default=str)}")
-        else:
-            parsed = {
-                "keywords": [query.strip()],
-                "category": None, "brand": None,
-                "color": None, "gender": None,
-                "price_min": None, "price_max": None,
-                "sort_by": None, "is_sale": False,
-                "in_stock": False, "min_discount": None,
-                "did_you_mean": None,
-            }
+        if parsed is None:
+            parsed = _parse_or_plain(query, nlp_ready)
 
         # Intent words that have been mapped to structured filters
         # Strip them so they don't pollute the text must clause
@@ -370,14 +379,10 @@ class ProductService:
         if not query or not query.strip():
             return {"results": [], "parsed": {}, "did_you_mean": None}
 
-        parsed = parse_query(query) if nlp_ready else {
-            "keywords": [query.strip()], "category": None, "brand": None,
-            "color": None, "gender": None, "price_min": None, "price_max": None,
-            "sort_by": None, "is_sale": False, "in_stock": False,
-            "min_discount": None, "did_you_mean": None,
-        }
-
-        results = ProductService.search_products(query, size=size, nlp_ready=nlp_ready)
+        parsed = _parse_or_plain(query, nlp_ready)
+        results = ProductService.search_products(
+            query, size=size, nlp_ready=nlp_ready, parsed=parsed
+        )
         return {
             "results": results,
             "parsed": {k: v for k, v in parsed.items() if k != "did_you_mean"},
@@ -511,7 +516,7 @@ class ProductService:
         except Exception as e:
             print(f"ES update failed: {e}")
 
-        cache.delete("all_products")
+        _invalidate_caches()
         return ProductService.get_product(product_id)
 
     # ------------------------------------------------------------------
@@ -532,7 +537,7 @@ class ProductService:
         except Exception as e:
             print(f"ES delete failed: {e}")
 
-        cache.delete("all_products")
+        _invalidate_caches()
         return success
 
     # ------------------------------------------------------------------
@@ -551,5 +556,9 @@ class ProductService:
             else:
                 still_failed += 1
 
-        cache.delete("all_products")
+        _invalidate_caches()
         return {"resynced": resynced, "still_failed": still_failed}
+
+    @staticmethod
+    def sync_status() -> dict:
+        return {"pending_failures": sync_failures.count_documents({})}

@@ -1,9 +1,12 @@
 import spacy
 import re
 import json
+from functools import lru_cache
 from rapidfuzz import process, fuzz
 
-nlp = spacy.load("en_core_web_sm")
+# Only the tagger + lemmatizer are needed for query parsing. Disabling the
+# dependency parser and NER cuts per-query spaCy time substantially.
+nlp = spacy.load("en_core_web_sm", disable=["parser", "ner"])
 
 # ---------------------------------------------------------------------------
 # Synonym Map — loaded from MongoDB on startup, seeded with sensible defaults
@@ -162,6 +165,15 @@ DISCOUNT_PATTERN = r"\b(\d{1,2})\s*(?:%|percent(?:age)?)\s*(?:off|discount)\b"
 # Entity knowledge base helpers
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=8192)
+def _lemma(word: str) -> str:
+    """Memoised single-word lemma (avoids re-running spaCy for the same word)."""
+    if not word:
+        return word
+    doc = nlp(word)
+    return doc[0].lemma_ if len(doc) else word
+
+
 def _lemmatize_list(word_list):
     return list(set(token.lemma_ for token in nlp(" ".join(word_list))))
 
@@ -261,14 +273,15 @@ def _extract_sort_intent(query: str) -> tuple[str | None, str]:
 
 def get_spelling_suggestion(token: str) -> str | None:
     """Return a spelling suggestion for a misspelled brand or category token."""
-    # Check brands first
-    brand_match = _fuzzy_match(token, BRANDS, threshold=60)
-    if brand_match and brand_match != token:
-        return brand_match
-    # Then categories
-    cat_match = _fuzzy_match(token, RAW_CATEGORIES, threshold=60)
-    if cat_match and cat_match != token:
-        return cat_match
+    # Pick the closest brand OR category (not "brands first"), so "sheos"
+    # suggests "shoes" rather than the weaker brand match "skechers".
+    best = None
+    for choices in (BRANDS, RAW_CATEGORIES):
+        result = process.extractOne(token, choices, scorer=fuzz.ratio)
+        if result and result[1] >= 60 and (best is None or result[1] > best[1]):
+            best = result
+    if best and best[0] != token:
+        return best[0]
     return None
 
 
@@ -276,12 +289,11 @@ def build_did_you_mean(original_query: str, parsed: dict) -> str | None:
     """If the parsed result found entities via fuzzy matching, build a
     'Did you mean …?' suggestion string to show the user."""
     corrections = []
-    tokens = original_query.lower().split()
-    for token in tokens:
-        if len(token) < 3:
+    for token in re.findall(r"[a-z0-9&']+", original_query.lower()):
+        if len(token) < 3 or token.isdigit() or _is_known_word(token):
             continue
         suggestion = get_spelling_suggestion(token)
-        if suggestion and suggestion.lower() != token.lower():
+        if suggestion and suggestion.lower() != token:
             corrections.append((token, suggestion))
 
     if not corrections:
@@ -289,8 +301,26 @@ def build_did_you_mean(original_query: str, parsed: dict) -> str | None:
 
     result = original_query
     for original, corrected in corrections:
-        result = re.sub(re.escape(original), corrected, result, flags=re.IGNORECASE)
+        result = re.sub(rf"\b{re.escape(original)}\b", corrected, result, flags=re.IGNORECASE)
     return result if result.lower() != original_query.lower() else None
+
+
+def _is_known_word(token: str) -> bool:
+    """True if a token is already a valid entity, synonym, intent or filler word,
+    so it must never be 'corrected' (e.g. 'boat' -> 'boots', 'stock' -> 'fastrack')."""
+    known = set(BRANDS) | set(RAW_CATEGORIES) | set(COLORS) | set(GENDERS) | STOP_WORDS
+    lemma = _lemma(token).lower()
+    for candidate in (token, lemma):
+        if candidate in known:
+            return True
+        canonical = _resolve_synonym(candidate)
+        # A synonym like "kicks" -> "shoes" is a valid word; a stored misspelling
+        # like "samusng" -> "samsung" should still get a "Did you mean".
+        if canonical in known and fuzz.ratio(candidate, canonical) < 75:
+            return True
+    intent_patterns = [p for ps in SORT_INTENT_PATTERNS.values() for p in ps]
+    intent_patterns += [SALE_PATTERN, STOCK_PATTERN]
+    return any(re.search(p, token, re.IGNORECASE) for p in intent_patterns)
 
 
 # ---------------------------------------------------------------------------
@@ -411,10 +441,10 @@ def parse_query(query: str) -> dict:
                 continue
 
             # Lemma-level exact match
-            cat_lemma = nlp(norm)[0].lemma_
+            cat_lemma = _lemma(norm)
             cat_matched = False
             for raw_cat in RAW_CATEGORIES:
-                if nlp(raw_cat)[0].lemma_ == cat_lemma:
+                if _lemma(raw_cat) == cat_lemma:
                     result["category"] = raw_cat
                     used_tokens.add(i)
                     cat_matched = True
@@ -433,12 +463,17 @@ def parse_query(query: str) -> dict:
 
         # ---- 4b. Fuzzy category (only if not an exact brand) ----
         if result["category"] is None and result["brand"] is None:
-            cat_lemma = nlp(norm)[0].lemma_
+            cat_lemma = _lemma(norm)
             # Raise threshold to 80 to avoid false positives like boat→boots
             fuzzy_cat_lemma = _fuzzy_match(cat_lemma, CATEGORIES, threshold=80)
+            if not fuzzy_cat_lemma:
+                # Typos can break lemmatisation ("sheos" -> "sheo"), so also
+                # compare the surface form against the raw category names.
+                raw_hit = _fuzzy_match(norm, RAW_CATEGORIES, threshold=80)
+                fuzzy_cat_lemma = _lemma(raw_hit) if raw_hit else None
             if fuzzy_cat_lemma:
                 for raw_cat in RAW_CATEGORIES:
-                    if nlp(raw_cat)[0].lemma_ == fuzzy_cat_lemma:
+                    if _lemma(raw_cat) == fuzzy_cat_lemma:
                         result["category"] = raw_cat
                         used_tokens.add(i)
                         break

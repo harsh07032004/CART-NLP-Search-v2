@@ -30,12 +30,14 @@ The backend **parses these queries with NLP**, extracts structured intent (brand
 | **NLP Query Parser** | spaCy + RapidFuzz pipeline extracts category, brand, color, gender, price range, sort intent, sale/discount intent from raw text |
 | **Smart Elasticsearch Search** | Multi-match + filter + sort driven by NLP-parsed structured intent |
 | **Sort Intent Routing** | "cheapest" → price ASC; "best rated" → rating DESC; "newest" → created_at DESC; "most discounted" → discount DESC |
-| **Progressive Fallback Search** | 6-level filter relaxation — never drops category, progressively relaxes brand → price → discount → keyword |
+| **Progressive Fallback Search** | 5-step filter relaxation on zero results — never drops category, relaxes brand → price → discount/stock → keyword |
 | **Real-time Autocomplete** | Entity-level (brand/category) + product name prefix suggestions on every keystroke |
 | **Voice Search** | Web Speech API microphone button — speak your query in English |
 | **"Did You Mean?"** | Fuzzy spell-correction hints for misspelled brands and categories |
 | **Live Entity Chips** | Real-time AI parsing chips show what the engine understood as you type |
-| **Dual-Write Safety** | Every product write goes to MongoDB (primary) + Elasticsearch (secondary) with exponential-backoff retry and `sync_failures` collection |
+| **Dual-Write Safety** | Every product write goes to MongoDB (primary) + Elasticsearch (secondary) with 3-attempt backoff retry; failures are logged to `sync_failures` and replayed via `POST /resync` |
+| **Similar Products** | `GET /recommendations/similar/{id}` — Elasticsearch `more_like_this` within the same category, boosted by brand |
+| **Search Analytics** | Every search is logged; `GET /analytics/stats` reports volume, zero-result rate and click-through rate; `GET /analytics/top-searches` |
 | **In-Memory TTL Cache** | 2-minute cache per search query, 5-minute cache for product list — no Redis required |
 | **Keep-Alive System** | Daemon thread (backend) + `useKeepAlive` hook (frontend) prevent Render free-tier cold starts |
 | **User Ratings** | Submit per-product star ratings; averaged and persisted back to MongoDB + Elasticsearch |
@@ -44,6 +46,43 @@ The backend **parses these queries with NLP**, extracts structured intent (brand
 | **Full Product Detail Page** | Breadcrumb nav, quantity picker, wishlist, share, discount badge, stock status, description tab, reviews tab, related products section |
 | **Responsive Cart** | Add/remove/adjust quantity, order summary with tax calculation, checkout confirmation |
 | **Render Deployment** | One-click `render.yaml` for full-stack deployment (Python web + static site) |
+
+
+---
+
+## 🆕 What's new in v2
+
+| Change | Why it matters |
+|---|---|
+| **26x faster query parsing** — mean parse time 41.9 ms → 1.6 ms | spaCy now loads only the tagger/lemmatizer (parser + NER disabled) and lemmas are memoised; parse output verified identical on the built-in test queries |
+| **50-query labeled parser benchmark** ([`backend/eval/parser_benchmark.json`](backend/eval/parser_benchmark.json)) | `python eval/eval_parser.py` reports field-level accuracy; runs in CI as a regression gate (133/133 fields) |
+| **Fixed "Did you mean" false corrections** | `"boat earphones in stock"` used to suggest *"boots earphone in fastrack"*; valid brands, categories, synonyms and intent words are no longer "corrected" |
+| **Typo categories** | `"sheos for men"` now resolves to `shoes` (lemmatisation breaks on typos, so the surface form is also fuzzy-matched) |
+| **`POST /resync` + `GET /sync-status`** | The resync routine existed but had no endpoint |
+| **Similar-products + analytics endpoints** | The frontend already called `/recommendations/*` and `/analytics/*`, which returned 404 — the "similar products" strip was always empty |
+| **Cache invalidation on writes** | Updates/deletes now clear cached searches instead of serving stale results for 2 minutes |
+| **Optional API key on writes** | Set `ADMIN_API_KEY` to require `X-API-Key` on POST/PUT/DELETE/resync |
+| **CORS + keep-alive fixes** | Wildcard origin no longer combined with credentials; keep-alive pings the public `RENDER_EXTERNAL_URL` (pinging localhost never prevented spin-down) |
+| **Tests + CI/CD** | 72 pytest tests (parser, fallback ladder, API auth, and end-to-end tests against real Elasticsearch 7.17 + MongoDB service containers) run on GitHub Actions with the frontend build and Docker image builds |
+| **Docker** | Backend `Dockerfile` + `docker-compose.yml` (Elasticsearch, MongoDB, backend, frontend) for one-command local setup |
+| **Removed dead code** | Unused Firebase placeholder config and the stale `bun.lockb` |
+
+### Run it locally with Docker
+
+```bash
+docker compose up --build
+docker compose exec backend python seed_fast.py
+# API: http://localhost:8000/docs   Frontend: http://localhost:3000
+```
+
+### Run the tests and benchmark
+
+```bash
+cd backend
+pip install -r requirements.txt pytest httpx
+pytest -v                    # integration tests auto-skip if Elasticsearch isn't running
+python eval/eval_parser.py   # parser accuracy + latency
+```
 
 ---
 
@@ -93,11 +132,16 @@ Parsed: {
 ```
 CART_MINIMAL/
 │
+├── docker-compose.yml            # Local stack: Elasticsearch + MongoDB + backend + frontend
+├── .github/workflows/ci.yml      # Tests (with ES + Mongo services), frontend build, Docker builds
 ├── render.yaml                   # One-click Render deployment config
 ├── runtime.txt                   # Python 3.11
 │
 ├── backend/
 │   ├── main.py                   # FastAPI app, lifespan startup, keep-alive daemon thread
+│   ├── Dockerfile
+│   ├── eval/                     # Labeled parser benchmark + scorer
+│   ├── tests/                    # pytest: parser, search service, API, ES/Mongo integration
 │   ├── requirements.txt          # Python dependencies
 │   ├── seed_fast.py              # Product seeder script
 │   ├── synonym.json              # Exported synonym reference
@@ -110,7 +154,8 @@ CART_MINIMAL/
 │       ├── models.py             # Pydantic schemas: ProductCreate, ProductUpdate, ProductResponse
 │       ├── cache.py              # In-memory TTL cache (no Redis)
 │       ├── routes/
-│       │   └── product_routes.py      # All REST endpoints
+│       │   ├── product_routes.py      # Product + search REST endpoints, /resync
+│       │   └── insight_routes.py      # Similar products, trending, search analytics
 │       ├── services/
 │       │   └── product_service.py     # CRUD, NLP search, autocomplete, fallback, resync
 │       └── utils/

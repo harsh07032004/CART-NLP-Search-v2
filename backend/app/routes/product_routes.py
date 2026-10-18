@@ -1,9 +1,22 @@
-from fastapi import APIRouter, HTTPException, Query
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from typing import List, Optional
+from app.config import settings
 from app.models import ProductCreate, ProductUpdate, ProductResponse
 from app.services.product_service import ProductService
+from app.routes.insight_routes import log_search
 
 router = APIRouter()
+
+
+def require_admin(x_api_key: Optional[str] = Header(default=None)) -> None:
+    """Protect write endpoints when ADMIN_API_KEY is configured.
+    With no key configured (local dev / demo) writes stay open."""
+    if settings.ADMIN_API_KEY and not (
+        x_api_key and secrets.compare_digest(x_api_key, settings.ADMIN_API_KEY)
+    ):
+        raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key")
 
 # NLP readiness flag — injected by main.py at startup
 _nlp_ready = False
@@ -13,7 +26,7 @@ def set_nlp_ready(value: bool):
     _nlp_ready = value
 
 
-@router.post("/products", response_model=ProductResponse, status_code=201)
+@router.post("/products", response_model=ProductResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_product(product: ProductCreate):
     """Add a new product. Syncs to MongoDB + Elasticsearch."""
     try:
@@ -24,12 +37,14 @@ async def create_product(product: ProductCreate):
 
 @router.get("/search", response_model=List[dict])
 async def search_products(
-    q: str = Query(None, min_length=1),
+    q: str = Query(..., min_length=1),
     size: int = Query(default=100, ge=1, le=200),
 ):
     """NLP-powered product search. Falls back to plain text if NLP engine not ready."""
     try:
-        return ProductService.search_products(q, size=size, nlp_ready=_nlp_ready)
+        results = ProductService.search_products(q, size=size, nlp_ready=_nlp_ready)
+        log_search(q, {}, len(results))
+        return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -42,7 +57,9 @@ async def search_products_with_meta(
     """NLP search that also returns what the AI parsed (entities, sort intent, did_you_mean).
     Used by SmartSearchBar to render entity chips with real data."""
     try:
-        return ProductService.search_products_with_meta(q, size=size, nlp_ready=_nlp_ready)
+        response = ProductService.search_products_with_meta(q, size=size, nlp_ready=_nlp_ready)
+        log_search(q, response["parsed"], response["total"])
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -90,7 +107,7 @@ async def get_product(product_id: str):
     return product
 
 
-@router.put("/products/{product_id}", response_model=dict)
+@router.put("/products/{product_id}", response_model=dict, dependencies=[Depends(require_admin)])
 async def update_product(product_id: str, updates: ProductUpdate):
     """Update an existing product."""
     try:
@@ -104,7 +121,7 @@ async def update_product(product_id: str, updates: ProductUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/products/{product_id}")
+@router.delete("/products/{product_id}", dependencies=[Depends(require_admin)])
 async def delete_product(product_id: str):
     """Delete a product from MongoDB and Elasticsearch."""
     try:
@@ -114,7 +131,7 @@ async def delete_product(product_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/refresh-nlp")
+@router.post("/refresh-nlp", dependencies=[Depends(require_admin)])
 async def refresh_nlp():
     """Manually trigger reload of brands/categories from DB into NLP parser."""
     try:
@@ -144,5 +161,24 @@ async def refresh_nlp():
             "brands": len(brands),
             "categories": len(categories),
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/resync", dependencies=[Depends(require_admin)])
+async def resync_failed_writes():
+    """Replay Elasticsearch writes that failed after all retries
+    (logged in the MongoDB `sync_failures` collection)."""
+    try:
+        return ProductService.resync_failed()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sync-status")
+async def sync_status():
+    """How many MongoDB writes are still missing from Elasticsearch."""
+    try:
+        return ProductService.sync_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -45,5 +45,4 @@ class ProductResponse(ProductBase):
     created_at: Optional[datetime] = None
     userRatings: Optional[List[Dict[str, Any]]] = []
 
-    class Config:
-        from_attributes= True
+    model_config = ConfigDict(from_attributes=True)

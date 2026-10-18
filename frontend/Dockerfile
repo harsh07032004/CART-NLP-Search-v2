@@ -11,6 +11,10 @@ RUN npm ci
 # Copy application code
 COPY . .
 
+# Vite inlines env vars at build time
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build for production
 RUN npm run build
 

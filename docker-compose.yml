@@ -1,0 +1,38 @@
+# Full local stack:  docker compose up --build
+#   then seed:       docker compose exec backend python seed_fast.py
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.25
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports: ["9200:9200"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      retries: 12
+
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+
+  backend:
+    build: ./backend
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=ecommerce
+      - ES_HOST=http://elasticsearch:9200
+      - ES_INDEX=products
+    ports: ["8000:8000"]
+    depends_on:
+      elasticsearch: {condition: service_healthy}
+      mongo: {condition: service_started}
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [backend]

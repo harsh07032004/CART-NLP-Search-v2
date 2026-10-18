@@ -37,6 +37,13 @@ class InMemoryCache:
         if key in self._cache:
             del self._cache[key]
             
+    def delete_prefix(self, prefix: str) -> int:
+        """Remove every key starting with `prefix`. Returns count removed."""
+        keys = [k for k in self._cache if k.startswith(prefix)]
+        for key in keys:
+            del self._cache[key]
+        return len(keys)
+
     def clear(self) -> None:
         self._cache.clear()
         

@@ -41,3 +41,7 @@ verify_*.py
 # OS
 .DS_Store
 Thumbs.db
+
+# Keep the documented template
+!.env.example
+!backend/.env.example
