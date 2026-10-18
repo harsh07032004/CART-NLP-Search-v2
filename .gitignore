@@ -45,3 +45,4 @@ Thumbs.db
 # Keep the documented template
 !.env.example
 !backend/.env.example
+!backend/tests/test_*.py
