@@ -1,9 +1,12 @@
-from pymongo import MongoClient
-from elasticsearch import Elasticsearch
-from app.config import settings
+# elasticsearch-py 7.x references np.float_, removed in NumPy 2.0. Patch it
+# BEFORE importing elasticsearch so any entry point (tests, scripts) works.
 import numpy as np
 if not hasattr(np, 'float_'):
     np.float_ = np.float64
+
+from pymongo import MongoClient
+from elasticsearch import Elasticsearch
+from app.config import settings
 
 # MongoDB
 mongo_client = MongoClient(settings.MONGO_URI)
