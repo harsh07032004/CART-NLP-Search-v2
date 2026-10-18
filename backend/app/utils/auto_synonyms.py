@@ -3,7 +3,7 @@ import requests
 # Fallback dictionary for common e-commerce terms
 # Datamuse can return weird synonyms (slang, etc.), so we have curated product synonyms
 PRODUCT_SYNONYMS = {
-    "shoes": ["footwear", "sneakers", "trainers", "kicks", "boots"],
+    "shoes": ["footwear", "trainers", "kicks", "runners"],
     "phone": ["mobile", "smartphone", "cellphone", "handset"],
     "shirt": ["top", "tee", "blouse", "jersey"],
     "pants": ["trousers", "jeans", "slacks"],

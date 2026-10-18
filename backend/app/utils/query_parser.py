@@ -199,6 +199,10 @@ def add_synonyms(field: str, key: str, new_synonyms: list):
         SYNONYM_MAP[field] = {}
 
     key = key.lower()
+    # Never let a synonym swallow another canonical entity: auto-discovered
+    # synonyms for "shoes" include "boots", which is its own category.
+    canonical = (set(RAW_CATEGORIES) | set(BRANDS)) - {key}
+    new_synonyms = [s for s in new_synonyms if s.lower() not in canonical]
     current = SYNONYM_MAP[field].get(key, [])
     updated = list(set(current + [s.lower() for s in new_synonyms]))
 

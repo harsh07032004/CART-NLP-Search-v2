@@ -63,7 +63,7 @@ The backend **parses these queries with NLP**, extracts structured intent (brand
 | **Cache invalidation on writes** | Updates/deletes now clear cached searches instead of serving stale results for 2 minutes |
 | **Optional API key on writes** | Set `ADMIN_API_KEY` to require `X-API-Key` on POST/PUT/DELETE/resync |
 | **CORS + keep-alive fixes** | Wildcard origin no longer combined with credentials; keep-alive pings the public `RENDER_EXTERNAL_URL` (pinging localhost never prevented spin-down) |
-| **Tests + CI/CD** | 72 pytest tests (parser, fallback ladder, API auth, and end-to-end tests against real Elasticsearch 7.17 + MongoDB service containers) run on GitHub Actions with the frontend build and Docker image builds |
+| **Tests + CI/CD** | 73 pytest tests (parser, fallback ladder, API auth, and end-to-end tests against real Elasticsearch 7.17 + MongoDB service containers) run on GitHub Actions with the frontend build and Docker image builds |
 | **Docker** | Backend `Dockerfile` + `docker-compose.yml` (Elasticsearch, MongoDB, backend, frontend) for one-command local setup |
 | **Removed dead code** | Unused Firebase placeholder config and the stale `bun.lockb` |
 

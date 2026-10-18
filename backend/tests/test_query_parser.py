@@ -38,3 +38,19 @@ def test_brand_beats_fuzzy_category():
     parsed = parse_query("boat earphones")
     assert parsed["brand"] == "boat"
     assert parsed["category"] == "earphone"
+
+
+def test_auto_synonyms_cannot_swallow_other_categories(monkeypatch):
+    # Regression: creating a "shoes" product added "boots" as a shoe synonym,
+    # after which "woodland boots" parsed as category "shoes".
+    from app.utils import query_parser
+
+    class _NoDB:
+        def update_one(self, *a, **k):
+            pass
+
+    import app.db
+    monkeypatch.setattr(app.db, "synonym_collection", _NoDB())
+    query_parser.add_synonyms("categories", "shoes", ["boots", "sneakers", "kicks"])
+    assert "boots" not in query_parser.SYNONYM_MAP["categories"]["shoes"]
+    assert parse_query("woodland boots for men")["category"] == "boots"
