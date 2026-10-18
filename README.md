@@ -1,5 +1,9 @@
 # CART — NLP-Powered E-Commerce Search Engine
 
+**Live demo:** https://harsh07032004.github.io/CART-NLP-Search-v2/ · **API docs:** https://cart-v2-api.onrender.com/docs
+(free tier: kept warm 08:30-20:30 IST; outside that the first request can take ~50 s)
+
+
 > **Full-stack placement project** demonstrating production-grade NLP, Elasticsearch search, and modern React development with a clean, deployable architecture.
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
