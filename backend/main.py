@@ -1,3 +1,4 @@
+import os
 import asyncio
 import threading
 import time
@@ -21,6 +22,10 @@ from contextlib import asynccontextmanager
 async def lifespan(app : FastAPI):
     # 1. Ensure ES index exists with correct mapping
     init_es_index()
+
+    # 1b. Hosted demo: seed the catalog once if the index is empty
+    if os.environ.get("AUTO_SEED") == "1":
+        threading.Thread(target=_seed_if_empty, daemon=True).start()
 
     # 2. Load NLP data in background (non-blocking — server accepts requests immediately)
     asyncio.create_task(_load_nlp_data())
@@ -61,6 +66,25 @@ app.add_middleware(
 # Prevents half-initialised NLP state from being used during cold-start
 # ---------------------------------------------------------------------------
 _nlp_ready = False
+
+
+def _seed_if_empty():
+    """Seed the demo catalog when the configured index has no documents.
+    Only touches settings.ES_INDEX / settings.MONGO_DB, so other indexes or
+    databases on the same cluster are left alone."""
+    try:
+        from app.db import es_client, settings
+        count = es_client.count(index=settings.ES_INDEX)["count"]
+        if count == 0:
+            print(f"AUTO_SEED: '{settings.ES_INDEX}' is empty - seeding demo catalog")
+            import seed_fast
+            seed_fast.seed()
+            product_routes.set_nlp_ready(False)
+            asyncio.run(_load_nlp_data())  # reload brands/categories from the new data
+        else:
+            print(f"AUTO_SEED: '{settings.ES_INDEX}' already has {count} products")
+    except Exception as e:
+        print(f"AUTO_SEED failed: {e}")
 
 
 async def _load_nlp_data():

@@ -36,7 +36,7 @@ const AppRoutes = () => {
   useKeepAlive(fetchProducts);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
           <Route path="/"            element={<Index />} />

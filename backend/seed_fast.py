@@ -290,6 +290,8 @@ def generate_guaranteed_products():
 
 
 def seed():
+    # Same catalog on every boot (the hosted demo re-seeds on each restart)
+    random.seed(42)
     print(f"\n{'='*55}")
     print("SEEDING WITH FULL COVERAGE (Guaranteed + Random)")
     print(f"{'='*55}\n")
