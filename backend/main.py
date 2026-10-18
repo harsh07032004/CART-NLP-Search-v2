@@ -79,6 +79,8 @@ def _seed_if_empty():
             print(f"AUTO_SEED: '{settings.ES_INDEX}' is empty - seeding demo catalog")
             import seed_fast
             seed_fast.seed()
+            from app.cache import cache
+            cache.clear()  # drop anything cached while the index was empty
             product_routes.set_nlp_ready(False)
             asyncio.run(_load_nlp_data())  # reload brands/categories from the new data
         else:

@@ -463,7 +463,8 @@ class ProductService:
             },
         )
         results = [_map_hit(h) for h in res["hits"]["hits"]]
-        cache.set("all_products", results, ttl=300)  # 5 min
+        if results:  # never cache an empty catalog (e.g. during first-boot seeding)
+            cache.set("all_products", results, ttl=300)  # 5 min
         return results
 
     # ------------------------------------------------------------------
